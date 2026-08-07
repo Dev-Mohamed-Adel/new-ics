@@ -50,7 +50,7 @@
   header.top .brand{ display:flex; align-items:center; gap:12px; }
   header.top .brand .mark{
     width:38px;height:38px;border-radius:9px;
-    
+    background:rgba(255,255,255,0.15);
     display:flex;align-items:center;justify-content:center;
     font-weight:700;font-size:14px;letter-spacing:1px;
   }
@@ -58,6 +58,8 @@
   header.top .sub{font-size:12px;opacity:0.85;margin-top:2px;display:flex;align-items:center;gap:8px;}
   .branch-badge{ background:rgba(255,255,255,0.25); padding:2px 8px; border-radius:4px; font-weight:600; }
   .role-badge{ background:#c96a3e; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+  .live-badge{ background:#2e7d32; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:4px; }
+  
   .header-actions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .change-branch-btn{
     color:#fff;
@@ -89,7 +91,6 @@
   }
   .tabs-type button.active{ background:#fff; color:var(--brand-dark); opacity:1; }
 
-  /* شريط أيام الأسبوع فقط بدون تواريخ أو تنقل أسابيع */
   .toolbar{
     width:100%;
     margin:14px auto 0;
@@ -98,11 +99,12 @@
     align-items:center;
     justify-content:center;
   }
-  .day-tabs{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+
+  .day-tabs{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
   .day-tabs button{
     border:1.5px solid var(--line);
     background:var(--card);
-    padding:8px 18px;
+    padding:8px 16px;
     border-radius:8px;
     font-size:15px;
     font-weight:700;
@@ -111,17 +113,20 @@
     min-width:95px;
     transition:all 0.15s ease;
   }
+
   .day-tabs button.active{
     background:var(--accent-soft);
     border-color:var(--accent);
     color:var(--accent);
   }
+
   .day-tabs button.is-today{
     border-color:var(--brand);
     box-shadow:0 0 0 2px var(--brand-soft);
   }
 
   main{ width:100%; margin:14px auto 40px; padding:0 16px; }
+  
   .board-wrap{
     background:var(--card);
     border:1px solid var(--line);
@@ -195,14 +200,13 @@
 
 <header class="top">
   <div class="brand">
-    <div class="mark">
-      <img src="./images/logo1.png" style="width: 100px;" alt="WEH Logo">
-    </div>
+    <div class="mark">WEH</div>
     <div>
       <h1>جدول العيادات والفحوصات</h1>
       <div class="sub">
         <span>Watany Eye Hospital —</span>
         <span class="branch-badge">فرع الثورة</span>
+        <span class="live-badge">🟢 متصل لحظياً</span>
         <span class="role-badge" id="roleBadge" style="display:none;">عرض فقط</span>
       </div>
     </div>
@@ -226,7 +230,7 @@
   <div class="board-wrap">
     <div class="board" id="board"></div>
   </div>
-  <div class="footer-note" id="footerNote">جدول أسبوعي ثابت — البيانات متزامنة لفرع الثورة عبر Supabase.</div>
+  <div class="footer-note" id="footerNote">البيانات متزامنة لحظياً (Realtime) لفرع الثورة عبر Supabase.</div>
 </main>
 
 <!-- Appointment Modal -->
@@ -395,7 +399,6 @@ function logout(){
   window.location.href = "login.html";
 }
 
-// 🔴 قائمة الأيام الـ 7 الثابتة 🔴
 const DAYS_OF_WEEK = [
   { id: "sat", name: "السبت" },
   { id: "sun", name: "الأحد" },
@@ -406,8 +409,7 @@ const DAYS_OF_WEEK = [
   { id: "fri", name: "الجمعة" }
 ];
 
-// معرفة يوم اليوم الحالي لتحديده تلقائياً
-const todayIndex = new Date().getDay(); // 0=Sun, 1=Mon...
+const todayIndex = new Date().getDay();
 const dayIdMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 const todayId = dayIdMap[todayIndex];
 
@@ -420,7 +422,7 @@ const START_HOUR = 8, END_HOUR = 24, PX_PER_HOUR = 48;
 
 let state = {
   type: "clinics",
-  activeDayId: todayId, // تحديد اليوم الحالي تلقائياً
+  activeDayId: todayId,
   editing: null,
   loadedResources: []
 };
@@ -440,7 +442,7 @@ function renderDayTabs(){
     btn.textContent = day.name;
     
     if(day.id === state.activeDayId) btn.classList.add('active');
-    if(day.id === todayId) btn.classList.add('is-today'); // إطار مميز ليوم اليوم
+    if(day.id === todayId) btn.classList.add('is-today');
     
     btn.onclick = () => { state.activeDayId = day.id; renderAll(); };
     wrap.appendChild(btn);
@@ -867,6 +869,26 @@ document.getElementById('typeTabs').addEventListener('click', (e)=>{
   renderAll();
 });
 
+// 🔴 مراقبة التحديثات المباشرة اللحظية من جميع الأجهزة (Realtime Sync) 🔴
+function subscribeToRealtimeSync() {
+  const client = getClient();
+  if (!client) return;
+
+  client.channel('realtime_reservations_' + BRANCH_KEY)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, (payload) => {
+      console.log('Realtime change detected in reservations:', payload);
+      renderBoard(); // إعادة رسم الشاشة لحظياً فور تغيير أي جهاز آخر!
+    })
+    .subscribe();
+
+  client.channel('realtime_resources_' + BRANCH_KEY)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'resources' }, (payload) => {
+      console.log('Realtime change detected in columns:', payload);
+      renderBoard(); // إعادة رسم الشاشة لحظياً عند تعديل الأعمدة!
+    })
+    .subscribe();
+}
+
 function renderAll(){
   renderTypeTabs();
   renderDayTabs();
@@ -874,6 +896,7 @@ function renderAll(){
 }
 
 renderAll();
+subscribeToRealtimeSync(); // تفعيل المزامنة اللحظية الحية
 </script>
 </body>
 </html>
