@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WEH - فرع الحجاز - جدول الحجوزات</title>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  if (!window.supabase) {
+    document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\/script>');
+  }
+</script>
+
+<style>
+  :root{
+    --ink:#1c2b33;
+    --ink-soft:#5a6b74;
+    --line:#dbe2e6;
+    --paper:#f4f7f8;
+    --card:#ffffff;
+    --brand:#0e5a63;
+    --brand-dark:#0a4048;
+    --brand-soft:#e3f0f0;
+    --accent:#c96a3e;
+    --accent-soft:#fbe9df;
+    --danger:#b3372c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Segoe UI", Tahoma, "Cairo", sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  
+  body.view-only .add-hint { cursor: default !important; }
+
+  header.top{
+    background:linear-gradient(180deg, var(--brand-dark), var(--brand));
+    color:#fff;
+    padding:14px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  header.top .brand{ display:flex; align-items:center; gap:12px; }
+  header.top .brand .mark{
+    width:38px;height:38px;border-radius:9px;
+    
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:14px;letter-spacing:1px;
+  }
+  header.top h1{font-size:18px;margin:0;font-weight:600;}
+  header.top .sub{font-size:12px;opacity:0.85;margin-top:2px;display:flex;align-items:center;gap:8px;}
+  .branch-badge{ background:rgba(255,255,255,0.25); padding:2px 8px; border-radius:4px; font-weight:600; }
+  .role-badge{ background:#c96a3e; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+  .header-actions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .change-branch-btn{
+    color:#fff;
+    text-decoration:none;
+    font-size:12px;
+    background:rgba(255,255,255,0.15);
+    padding:6px 12px;
+    border-radius:6px;
+    transition:background 0.2s;
+    border:none;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .change-branch-btn:hover{ background:rgba(255,255,255,0.3); }
+  .manage-cols-btn{ background:#c96a3e !important; font-weight:600; }
+  .logout-btn-nav{ background:rgba(179,55,44,0.35) !important; border:1px solid rgba(255,255,255,0.2); }
+  .logout-btn-nav:hover{ background:rgba(179,55,44,0.6) !important; }
+  .tabs-type{ display:flex; gap:6px; background:rgba(255,255,255,0.12); padding:4px; border-radius:9px; }
+  .tabs-type button{
+    border:none;
+    background:transparent;
+    color:#fff;
+    padding:8px 14px;
+    border-radius:7px;
+    font-size:13px;
+    cursor:pointer;
+    font-weight:500;
+    opacity:0.8;
+  }
+  .tabs-type button.active{ background:#fff; color:var(--brand-dark); opacity:1; }
+
+  .toolbar{
+    width:100%;
+    margin:14px auto 0;
+    padding:0 16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .day-tabs{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+  .day-tabs button{
+    border:1.5px solid var(--line);
+    background:var(--card);
+    padding:8px 18px;
+    border-radius:8px;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    color:var(--ink);
+    min-width:95px;
+    transition:all 0.15s ease;
+  }
+  .day-tabs button.active{
+    background:var(--accent-soft);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  .day-tabs button.is-today{
+    border-color:var(--brand);
+    box-shadow:0 0 0 2px var(--brand-soft);
+  }
+
+  main{ width:100%; margin:14px auto 40px; padding:0 16px; }
+  .board-wrap{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    width:100%;
+  }
+
+  .board-wrap::-webkit-scrollbar { height: 9px; }
+  .board-wrap::-webkit-scrollbar-track { background: #edf1f2; border-radius: 4px; }
+  .board-wrap::-webkit-scrollbar-thumb { background: var(--brand); border-radius: 4px; }
+  .board-wrap::-webkit-scrollbar-thumb:hover { background: var(--brand-dark); }
+
+  .board{ display:grid; width:100%; }
+
+  .col-head{
+    position:sticky; top:0; background:var(--card); border-bottom:2px solid var(--line);
+    padding:10px 4px; text-align:center; font-size:13px; font-weight:700;
+    z-index:2; border-left:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .time-col-head{ position:sticky; top:0; left:0; background:var(--card); z-index:3; border-bottom:2px solid var(--line); }
+  .time-col{ position:sticky; left:0; background:var(--paper); z-index:1; border-left:1px solid var(--line); }
+  
+  .time-slot{
+    font-size:12.5px; font-weight:700; color:var(--ink); text-align:center;
+    padding-top:4px; border-top:1px solid var(--line); height:48px;
+  }
+
+  .resource-col{ position:relative; border-left:1px solid var(--line); }
+  .hour-line{ position:absolute; left:0;right:0; border-top:1px solid #edf1f2; height:48px; }
+  .hour-line:nth-child(2n) { background:rgba(0,0,0,0.012); }
+  .add-hint{ position:absolute; inset:0; cursor:pointer; }
+  
+  .appt{
+    position:absolute; left:2px;right:2px; border-radius:8px; padding:6px 8px; color:#fff;
+    overflow:hidden; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.25); line-height:1.35;
+  }
+  .appt .n{ font-weight:800; font-size:15px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .appt .t{ font-size:12.5px; font-weight:600; opacity:0.95; display:block; margin-top:3px; }
+
+  .overlay{ position:fixed;inset:0; background:rgba(15,25,30,0.45); display:none; align-items:center;justify-content:center; z-index:50; padding:16px; }
+  .overlay.show{display:flex;}
+  .modal{ background:#fff; border-radius:12px; width:100%;max-width:460px; padding:20px; }
+  .modal h3{margin:0 0 12px;font-size:15px;}
+  
+  .modal-alert{
+    background:#fdecea; color:var(--danger); border:1px solid #f3c6c0; padding:8px 12px;
+    border-radius:8px; font-size:12px; margin-bottom:12px; display:none; line-height:1.4;
+  }
+
+  .modal label{ display:block; font-size:12px; color:var(--ink-soft); margin:10px 0 4px; }
+  .modal input, .modal select{ width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:7px; font-size:13px; font-family:inherit; }
+  .modal input:disabled, .modal select:disabled{ background:#f4f7f8; color:#5a6b74; cursor:not-allowed; }
+  .row2{display:flex;gap:10px;}
+  .row2 > div{flex:1;}
+  .modal .actions{ display:flex; justify-content:space-between; margin-top:18px; gap:8px; }
+  .btn{ padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-size:12.5px; }
+  .btn.primary{background:var(--brand);color:#fff;border-color:var(--brand);font-weight:600;}
+  .btn.danger{background:#fdecea;color:#b3372c;border-color:#f3c6c0;}
+  .btn.icon-btn{ padding:6px 8px; font-size:13px; }
+  .footer-note{ text-align:center; color:var(--ink-soft); font-size:11.5px; margin-top:14px; }
+
+  .col-item{ display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+  .col-item input{ flex:1; }
+  .add-col-box{ display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+  .add-col-row{ display:flex; gap:8px; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <div class="mark">
+      <img src="./images/logo1.png" style="width: 100px;" alt="WEH Logo">
+    </div>
+    <div>
+      <h1>جدول العيادات والفحوصات</h1>
+      <div class="sub">
+        <span>Watany Eye Hospital —</span>
+        <span class="branch-badge">فرع الحجاز</span>
+        <span class="role-badge" id="roleBadge" style="display:none;">عرض فقط</span>
+      </div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="index.html" class="change-branch-btn">◀ باقي الفروع</a>
+    <button id="manageColsBtn" class="change-branch-btn manage-cols-btn" onclick="openColsModal()">⚙️ تعديل الأعمدة</button>
+    <button onclick="logout()" class="change-branch-btn logout-btn-nav">تسجيل الخروج</button>
+    <div class="tabs-type" id="typeTabs">
+      <button data-type="clinics">العيادات (Clinics)</button>
+      <button data-type="investigations">الفحوصات (Investigations)</button>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="day-tabs" id="dayTabs"></div>
+</div>
+
+<main>
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+  <div class="footer-note" id="footerNote">جدول أسبوعي ثابت — البيانات متزامنة لفرع الحجاز عبر Supabase.</div>
+</main>
+
+<!-- Appointment Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="modalTitle">إضافة موعد</h3>
+    <div class="modal-alert" id="modalAlert"></div>
+
+    <label>الاسم</label>
+    <input id="fName" placeholder="اسم الطبيب / المريض">
+    <div class="row2">
+      <div>
+        <label>من</label>
+        <input id="fStart" type="time" value="10:00">
+      </div>
+      <div>
+        <label>إلى</label>
+        <input id="fEnd" type="time" value="12:00">
+      </div>
+    </div>
+    <label>اللون</label>
+    <select id="fColor">
+      <option value="#0e5a63">أخضر مطفي</option>
+      <option value="#2c5f8a">أزرق</option>
+      <option value="#c96a3e">برتقالي</option>
+      <option value="#7a4fa0">بنفسجي</option>
+      <option value="#b3372c">أحمر</option>
+      <option value="#3f3f3f">رمادي غامق</option>
+    </select>
+    <div class="actions">
+      <button class="btn danger" id="deleteBtn" style="display:none;">حذف</button>
+      <div style="flex:1"></div>
+      <button class="btn" id="cancelBtn">إلغاء</button>
+      <button class="btn primary" id="saveBtn">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dynamic Column Manager Modal -->
+<div class="overlay" id="colsOverlay">
+  <div class="modal">
+    <h3>إدارة وترتيب الأعمدة</h3>
+    <div id="colsList" style="max-height:240px; overflow-y:auto; padding-right:4px;"></div>
+
+    <div class="add-col-box">
+      <label><b>إضافة عمود جديد وتحديد موقعه:</b></label>
+      <div class="add-col-row">
+        <input id="newColName" placeholder="اسم العمود الجديد (مثل: Clinic 10)">
+        <select id="newColPosition" style="width:140px;"></select>
+      </div>
+      <button class="btn primary" style="margin-top:4px;" onclick="addNewColumn()">+ إضافة العمود في المكان المحدد</button>
+    </div>
+
+    <div class="actions">
+      <div style="flex:1"></div>
+      <button class="btn" onclick="closeColsModal()">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- SUPABASE CLIENT ---
+const SUPABASE_URL = "https://zipbobmaokofgdyrjubi.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppcGJvYm1hb2tvZmdkeXJqdWJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MDA5ODMsImV4cCI6MjEwMDQ3Njk4M30.7QergH1r3sSprj__zngkUV4-iwExhVNFRRKrqNCB9vU";
+
+let supabaseClient = null;
+function getClient() {
+  if (!supabaseClient && window.supabase && typeof window.supabase.createClient === 'function') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return supabaseClient;
+}
+
+function showModalAlert(msg) {
+  const box = document.getElementById('modalAlert');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+
+function hideModalAlert() {
+  const box = document.getElementById('modalAlert');
+  box.style.display = 'none';
+  box.textContent = '';
+}
+
+const BRANCH_KEY = "hegaz";
+
+// --- AUTH & STRICT BRANCH PERMISSION CHECK ---
+const userStr = localStorage.getItem('weh_logged_user');
+if(!userStr){ window.location.href = "login.html"; }
+const currentUser = JSON.parse(userStr);
+
+let isViewer = true;
+
+function getBranchNameArabic(key){
+  if(key === 'thawra') return 'فرع الثورة';
+  if(key === 'hegaz') return 'فرع الحجاز';
+  if(key === 'hurgada' || key === 'hurghada') return 'فرع الغردقة';
+  return 'فرع آخر';
+}
+
+function canEditCurrentBranch(role, allowed) {
+  if (role === 'admin') return true;
+  if (role === 'viewer' || role === 'user' || currentUser.username === 'user') return false;
+  if (role === 'editor') {
+    if (allowed === 'all') return true;
+    const currentNorm = (BRANCH_KEY === 'hurghada') ? 'hurgada' : BRANCH_KEY;
+    const allowedNorm = (allowed === 'hurghada') ? 'hurgada' : allowed;
+    return currentNorm === allowedNorm;
+  }
+  return false;
+}
+
+async function verifyLivePermissions() {
+  try {
+    const client = getClient();
+    if(client && currentUser.username) {
+      const { data } = await client.from('profiles').select('role, allowed_branches').eq('username', currentUser.username).maybeSingle();
+      if(data) {
+        currentUser.role = data.role;
+        currentUser.allowed_branches = data.allowed_branches || 'all';
+        localStorage.setItem('weh_logged_user', JSON.stringify(currentUser));
+      }
+    }
+  } catch(e) { console.warn(e); }
+
+  const canEdit = canEditCurrentBranch(currentUser.role, currentUser.allowed_branches);
+  isViewer = !canEdit;
+
+  if(isViewer){
+    document.body.classList.add('view-only');
+    const roleBadge = document.getElementById('roleBadge');
+    roleBadge.style.display = 'inline-block';
+
+    if(currentUser.role === 'editor' && currentUser.allowed_branches !== 'all' && currentUser.allowed_branches !== BRANCH_KEY){
+      roleBadge.textContent = 'عرض فقط (فرعك المخصص: ' + getBranchNameArabic(currentUser.allowed_branches) + ')';
+      document.getElementById('footerNote').textContent = 'حسابك محرر لـ ' + getBranchNameArabic(currentUser.allowed_branches) + ' فقط. لا يمكنك التعديل بفرع الحجاز.';
+    } else {
+      roleBadge.textContent = 'عرض فقط';
+      document.getElementById('footerNote').textContent = 'وضع العرض فقط — لا يمكنك إضافة أو تعديل المواعيد.';
+    }
+    document.getElementById('manageColsBtn').style.display = 'none';
+  } else {
+    document.body.classList.remove('view-only');
+    document.getElementById('roleBadge').style.display = 'none';
+    document.getElementById('manageColsBtn').style.display = 'inline-block';
+  }
+}
+
+async function logActivity(actionType, description) {
+  try {
+    const client = getClient();
+    if(!client) return;
+    await client.from('logs').insert([{
+      user_name: currentUser.name || currentUser.username,
+      user_role: currentUser.role,
+      action_type: actionType,
+      description: description,
+      branch: BRANCH_KEY
+    }]);
+  } catch(e) { console.error(e); }
+}
+
+function logout(){
+  localStorage.removeItem('weh_logged_user');
+  window.location.href = "login.html";
+}
+
+// 🔴 قائمة الأيام الـ 7 الثابتة 🔴
+const DAYS_OF_WEEK = [
+  { id: "sat", name: "السبت" },
+  { id: "sun", name: "الأحد" },
+  { id: "mon", name: "الإثنين" },
+  { id: "tue", name: "الثلاثاء" },
+  { id: "wed", name: "الأربعاء" },
+  { id: "thu", name: "الخميس" },
+  { id: "fri", name: "الجمعة" }
+];
+
+const todayIndex = new Date().getDay();
+const dayIdMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const todayId = dayIdMap[todayIndex];
+
+const DEFAULT_RESOURCES = {
+  clinics: ["Clinic 1","Clinic 2","Clinic 3","Clinic 4","Clinic 5","Clinic 6","Clinic 7","Clinic 8","Clinic 9"],
+  investigations: ["OCT", "Field", "Biometry & Ultra sound", "Pentacam"]
+};
+
+const START_HOUR = 8, END_HOUR = 24, PX_PER_HOUR = 48;
+
+let state = {
+  type: "clinics",
+  activeDayId: todayId, // تحديد اليوم الحالي تلقائياً
+  editing: null,
+  loadedResources: []
+};
+
+function renderTypeTabs(){
+  document.querySelectorAll('#typeTabs button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.type === state.type);
+  });
+}
+
+function renderDayTabs(){
+  const wrap = document.getElementById('dayTabs');
+  wrap.innerHTML = '';
+  
+  DAYS_OF_WEEK.forEach(day => {
+    const btn = document.createElement('button');
+    btn.textContent = day.name;
+    
+    if(day.id === state.activeDayId) btn.classList.add('active');
+    if(day.id === todayId) btn.classList.add('is-today');
+    
+    btn.onclick = () => { state.activeDayId = day.id; renderAll(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function timeToMinutes(t){
+  const [h,m] = t.split(':').map(Number);
+  return h*60+m;
+}
+function minutesToLabel(mins){
+  const h = Math.floor(mins/60), m = mins%60;
+  const ampm = h>=12 ? 'pm':'am';
+  let h12 = h%12; if(h12===0) h12=12;
+  return `${h12}:${String(m).padStart(2,'0')}${ampm}`;
+}
+
+async function fetchResources(){
+  try{
+    const client = getClient();
+    if(!client) return DEFAULT_RESOURCES[state.type];
+
+    const { data, error } = await client
+      .from('resources')
+      .select('*')
+      .eq('branch', BRANCH_KEY)
+      .eq('type', state.type)
+      .order('sort_order', { ascending: true });
+
+    if(error || !data || data.length === 0){
+      state.loadedResources = DEFAULT_RESOURCES[state.type].map((name, i) => ({ id: null, name, sort_order: i+1 }));
+      return DEFAULT_RESOURCES[state.type];
+    }
+
+    state.loadedResources = data;
+    return data.map(r => r.name);
+  }catch(e){
+    console.error(e);
+    return DEFAULT_RESOURCES[state.type];
+  }
+}
+
+async function loadDayData(){
+  try{
+    const client = getClient();
+    if(!client) return [];
+
+    const { data, error } = await client
+      .from('reservations')
+      .select('*')
+      .eq('branch', BRANCH_KEY)
+      .eq('type', state.type)
+      .eq('reservation_date', state.activeDayId);
+
+    if(error){ console.error("Supabase load error:", error); return []; }
+    return data.map(item => ({
+      id: item.id,
+      resource: item.resource,
+      name: item.title,
+      start: item.start_minutes,
+      end: item.end_minutes,
+      color: item.color,
+      created_by_name: item.created_by_name
+    }));
+  }catch(e){
+    console.error(e);
+    return [];
+  }
+}
+
+async function renderBoard(){
+  await verifyLivePermissions();
+
+  const board = document.getElementById('board');
+  const resources = await fetchResources();
+  const totalMinutes = (END_HOUR-START_HOUR)*60;
+  const pxPerMin = PX_PER_HOUR/60;
+  
+  board.style.gridTemplateColumns = `70px repeat(${resources.length}, minmax(140px, 1fr))`;
+
+  let html = `<div class="time-col-head"></div>`;
+  resources.forEach(r=>{ html += `<div class="col-head" title="${r}">${r}</div>`; });
+
+  html += `<div class="time-col" style="grid-column:1;">`;
+  for(let h=START_HOUR; h<END_HOUR; h++){
+    html += `<div class="time-slot">${minutesToLabel(h*60)}</div>`;
+  }
+  html += `</div>`;
+
+  const dayData = await loadDayData();
+
+  resources.forEach((r) => {
+    const colHeight = totalMinutes*pxPerMin;
+    html += `<div class="resource-col" style="height:${colHeight}px;" data-resource="${r}">`;
+    for(let h=START_HOUR; h<END_HOUR; h++){
+      html += `<div class="hour-line" style="top:${(h-START_HOUR)*PX_PER_HOUR}px;"></div>`;
+    }
+    html += `<div class="add-hint" data-resource="${r}"></div>`;
+    dayData.filter(a=>a.resource===r).forEach(a=>{
+      const top = (a.start - START_HOUR*60)*pxPerMin;
+      const height = Math.max((a.end-a.start)*pxPerMin, 22);
+      html += `<div class="appt" data-id="${a.id}" style="top:${top}px;height:${height}px;background:${a.color||'#0e5a63'};">
+        <span class="n">${escapeHtml(a.name)}</span>
+        <span class="t">${minutesToLabel(a.start)} - ${minutesToLabel(a.end)}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  board.innerHTML = html;
+
+  board.querySelectorAll('.add-hint').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      if(isViewer) return;
+      const rect = el.getBoundingClientRect();
+      const clickY = e.clientY - rect.top;
+      const clickedMinutes = START_HOUR*60 + Math.round(clickY/pxPerMin/15)*15;
+      openModal({mode:'add', resource: el.dataset.resource, start: clickedMinutes});
+    });
+  });
+
+  board.querySelectorAll('.appt').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const id = el.dataset.id;
+      const item = dayData.find(a=>a.id===id);
+      if(item) openModal({mode:'edit', item});
+    });
+  });
+}
+
+function escapeHtml(s){
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function openModal({mode, resource, start, item}){
+  hideModalAlert();
+  state.editing = { mode, resource: resource || (item && item.resource), id: item && item.id, name: item && item.name };
+  const fName = document.getElementById('fName');
+  const fStart = document.getElementById('fStart');
+  const fEnd = document.getElementById('fEnd');
+  const fColor = document.getElementById('fColor');
+  const saveBtn = document.getElementById('saveBtn');
+  const deleteBtn = document.getElementById('deleteBtn');
+
+  const createdBy = (item && item.created_by_name) ? ` (بواسطة: ${item.created_by_name})` : '';
+
+  if(isViewer){
+    document.getElementById('modalTitle').textContent = 'تفاصيل الموعد (عرض فقط)' + createdBy;
+    deleteBtn.style.display = 'none';
+    saveBtn.style.display = 'none';
+    fName.disabled = true;
+    fStart.disabled = true;
+    fEnd.disabled = true;
+    fColor.disabled = true;
+  } else {
+    document.getElementById('modalTitle').textContent = (mode==='edit' ? 'تعديل الموعد' : 'إضافة موعد') + createdBy;
+    deleteBtn.style.display = mode==='edit' ? 'inline-block' : 'none';
+    saveBtn.style.display = 'inline-block';
+    fName.disabled = false;
+    fStart.disabled = false;
+    fEnd.disabled = false;
+    fColor.disabled = false;
+  }
+
+  if(mode==='edit'){
+    fName.value = item.name;
+    fStart.value = minutesToTimeInput(item.start);
+    fEnd.value = minutesToTimeInput(item.end);
+    fColor.value = item.color || '#0e5a63';
+  } else {
+    fName.value = '';
+    fStart.value = minutesToTimeInput(start);
+    fEnd.value = minutesToTimeInput(start+120);
+    fColor.value = '#0e5a63';
+  }
+  document.getElementById('overlay').classList.add('show');
+  if(!isViewer) fName.focus();
+}
+
+function minutesToTimeInput(mins){
+  const h = Math.floor(mins/60), m = mins%60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function closeModal(){
+  hideModalAlert();
+  document.getElementById('overlay').classList.remove('show');
+  state.editing = null;
+}
+
+document.getElementById('cancelBtn').onclick = closeModal;
+document.getElementById('overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'overlay') closeModal();
+});
+
+// --- COLUMN MANAGER LOGIC ---
+async function openColsModal(){
+  if(isViewer || currentUser.role !== 'admin') return;
+  document.getElementById('colsOverlay').classList.add('show');
+  renderColsList();
+}
+
+function closeColsModal(){
+  document.getElementById('colsOverlay').classList.remove('show');
+  renderBoard();
+}
+
+function renderColsList(){
+  const list = document.getElementById('colsList');
+  const posSelect = document.getElementById('newColPosition');
+  list.innerHTML = '';
+  posSelect.innerHTML = '';
+
+  const endOpt = document.createElement('option');
+  endOpt.value = state.loadedResources.length;
+  endOpt.textContent = "في النهاية (Default)";
+  posSelect.appendChild(endOpt);
+
+  const startOpt = document.createElement('option');
+  startOpt.value = 0;
+  startOpt.textContent = "في البداية (الأول)";
+  posSelect.appendChild(startOpt);
+
+  state.loadedResources.forEach((col, index) => {
+    const opt = document.createElement('option');
+    opt.value = index + 1;
+    opt.textContent = `بعد ${col.name}`;
+    posSelect.appendChild(opt);
+
+    const item = document.createElement('div');
+    item.className = 'col-item';
+    item.innerHTML = `
+      <button class="btn icon-btn" onclick="moveColumn(${index}, -1)" ${index === 0 ? 'disabled' : ''}>⬆️</button>
+      <button class="btn icon-btn" onclick="moveColumn(${index}, 1)" ${index === state.loadedResources.length - 1 ? 'disabled' : ''}>⬇️</button>
+      <input value="${escapeHtml(col.name)}" id="col_input_${index}">
+      <button class="btn primary" onclick="renameColumn(${index})">تعديل</button>
+      <button class="btn danger" onclick="deleteColumn(${index})">حذف</button>
+    `;
+    list.appendChild(item);
+  });
+}
+
+async function moveColumn(index, direction){
+  const targetIndex = index + direction;
+  if(targetIndex < 0 || targetIndex >= state.loadedResources.length) return;
+
+  const temp = state.loadedResources[index];
+  state.loadedResources[index] = state.loadedResources[targetIndex];
+  state.loadedResources[targetIndex] = temp;
+
+  await saveAllColumnsOrder(state.loadedResources);
+  await logActivity('MANAGE_COLUMNS', `ترتيب الأعمدة لـ (${state.type === 'clinics' ? 'العيادات' : 'الفحوصات'})`);
+  renderColsList();
+  renderBoard();
+}
+
+async function renameColumn(index){
+  const col = state.loadedResources[index];
+  const newName = document.getElementById(`col_input_${index}`).value.trim();
+  if(!newName){ alert("اكتب الاسم الجديد"); return; }
+
+  const oldName = col.name;
+  col.name = newName;
+  await saveAllColumnsOrder(state.loadedResources);
+  await logActivity('MANAGE_COLUMNS', `تعديل اسم العمود من "${oldName}" إلى "${newName}"`);
+  alert("تم تعديل الاسم بنجاح!");
+  renderColsList();
+  renderBoard();
+}
+
+async function deleteColumn(index){
+  const col = state.loadedResources[index];
+  if(!confirm(`هل أنت ألكيد من حذف العمود "${col.name}"؟`)) return;
+
+  const client = getClient();
+  if(col.id && client){
+    await client.from('resources').delete().eq('id', col.id);
+  }
+
+  const deletedName = col.name;
+  state.loadedResources.splice(index, 1);
+  await saveAllColumnsOrder(state.loadedResources);
+  await logActivity('MANAGE_COLUMNS', `حذف العمود "${deletedName}"`);
+  alert("تم الحذف بنجاح!");
+  renderColsList();
+  renderBoard();
+}
+
+async function addNewColumn(){
+  const nameInput = document.getElementById('newColName');
+  const name = nameInput.value.trim();
+  if(!name){ alert("أدخل اسم العمود الجديد"); return; }
+
+  const targetPos = parseInt(document.getElementById('newColPosition').value, 10);
+  const newColObj = { id: null, name: name, sort_order: 0 };
+
+  if(targetPos >= state.loadedResources.length) {
+    state.loadedResources.push(newColObj);
+  } else {
+    state.loadedResources.splice(targetPos, 0, newColObj);
+  }
+
+  await saveAllColumnsOrder(state.loadedResources);
+  await logActivity('MANAGE_COLUMNS', `إضافة عمود جديد باسم "${name}"`);
+
+  nameInput.value = '';
+  alert("تم إضافة العمود بنجاح!");
+  renderColsList();
+  renderBoard();
+}
+
+async function saveAllColumnsOrder(list) {
+  const client = getClient();
+  if(!client) return;
+
+  for(let i = 0; i < list.length; i++) {
+    const item = list[i];
+    const sortOrder = i + 1;
+    if(item.id) {
+      await client.from('resources').update({ name: item.name, sort_order: sortOrder }).eq('id', item.id);
+    } else {
+      const { data } = await client.from('resources').insert([{
+        branch: BRANCH_KEY,
+        type: state.type,
+        name: item.name,
+        sort_order: sortOrder
+      }]).select();
+      if(data && data[0]) item.id = data[0].id;
+    }
+  }
+}
+
+// --- SAVE RESERVATION ---
+document.getElementById('saveBtn').onclick = async ()=>{
+  if(isViewer){
+    showModalAlert("⚠️ حسابك للعرض فقط في هذا الفرع، لا يمكنك الإضافة أو التعديل.");
+    return;
+  }
+
+  const name = document.getElementById('fName').value.trim();
+  if(!name){ showModalAlert('⚠️ من فضلك اكتب الاسم'); return; }
+  const start = timeToMinutes(document.getElementById('fStart').value);
+  const end = timeToMinutes(document.getElementById('fEnd').value);
+  if(end <= start){ showModalAlert('⚠️ وقت النهاية يجب أن يكون بعد وقت البداية'); return; }
+  const color = document.getElementById('fColor').value;
+
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.textContent = "⏳ جاري الحفظ...";
+  saveBtn.disabled = true;
+
+  try {
+    const client = getClient();
+    if (!client) {
+      showModalAlert("⚠️ تعذر الاتصال بـ Supabase!");
+      return;
+    }
+
+    if(state.editing.mode === 'edit'){
+      const { error } = await client.from('reservations').update({
+        title: name,
+        start_minutes: start,
+        end_minutes: end,
+        color: color
+      }).eq('id', state.editing.id);
+
+      if (error) throw error;
+      await logActivity('EDIT_RESERVATION', `تم تعديل موعد لـ "${name}" في ${state.editing.resource}`);
+    } else {
+      const payload = {
+        branch: BRANCH_KEY,
+        type: state.type,
+        reservation_date: state.activeDayId,
+        resource: state.editing.resource,
+        title: name,
+        start_minutes: start,
+        end_minutes: end,
+        color: color,
+        created_by_name: currentUser.name || currentUser.username
+      };
+
+      const { error } = await client.from('reservations').insert([payload]);
+      if (error) throw error;
+      await logActivity('ADD_RESERVATION', `تم إضافة موعد لـ "${name}" في ${state.editing.resource}`);
+    }
+
+    closeModal();
+    renderBoard();
+
+  } catch(err) {
+    console.error("Save error:", err);
+    showModalAlert("❌ حدث خطأ أثناء الحفظ:\n" + (err.message || JSON.stringify(err)));
+  } finally {
+    saveBtn.textContent = "حفظ";
+    saveBtn.disabled = false;
+  }
+};
+
+document.getElementById('deleteBtn').onclick = async ()=>{
+  if(isViewer) return;
+  hideModalAlert();
+  if(state.editing && state.editing.id){
+    try {
+      const client = getClient();
+      if(client){
+        const { error } = await client.from('reservations').delete().eq('id', state.editing.id);
+        if (error) throw error;
+        await logActivity('DELETE_RESERVATION', `تم حذف موعد لـ "${state.editing.name || ''}"`);
+      }
+    } catch(err) {
+      showModalAlert("❌ حدث خطأ أثناء الحذف: " + err.message);
+      return;
+    }
+  }
+  closeModal();
+  renderBoard();
+};
+
+document.getElementById('typeTabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  state.type = btn.dataset.type;
+  renderAll();
+});
+
+function renderAll(){
+  renderTypeTabs();
+  renderDayTabs();
+  renderBoard();
+}
+
+renderAll();
+</script>
+</body>
+</html>

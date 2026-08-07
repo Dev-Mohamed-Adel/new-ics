@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WEH - (Admin Logs)</title>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  if (!window.supabase) {
+    document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\/script>');
+  }
+</script>
+
+<style>
+  :root{
+    --ink:#1c2b33;
+    --ink-soft:#5a6b74;
+    --line:#dbe2e6;
+    --paper:#f4f7f8;
+    --card:#ffffff;
+    --brand:#0e5a63;
+    --brand-dark:#0a4048;
+    --accent:#c96a3e;
+    --danger:#b3372c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Segoe UI", Tahoma, "Cairo", sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  header.top{
+    background:linear-gradient(180deg, var(--brand-dark), var(--brand));
+    color:#fff;
+    padding:16px 24px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  header.top h1{ font-size:18px; margin:0; font-weight:600; }
+  .nav-btn{
+    color:#fff; text-decoration:none; font-size:12.5px;
+    background:rgba(255,255,255,0.15); padding:6px 14px;
+    border-radius:6px; transition:background 0.2s;
+  }
+  .nav-btn:hover{ background:rgba(255,255,255,0.3); }
+
+  container{
+    display:block;
+    max-width:1100px;
+    margin:24px auto;
+    padding:0 16px;
+  }
+
+  .card-box{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:20px;
+    margin-bottom:24px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.03);
+  }
+  .card-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .card-box h2{ font-size:16px; margin:0; color:var(--brand); }
+
+  .filter-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+  }
+  input, select{
+    padding:8px 12px; border:1px solid var(--line);
+    border-radius:7px; font-size:13px; font-family:inherit; outline:none;
+  }
+  input{ flex:1; min-width:200px; }
+
+  .btn{
+    padding:8px 14px; border-radius:8px; border:1px solid var(--line);
+    background:#fff; cursor:pointer; font-size:12.5px; font-family:inherit;
+  }
+  .btn.danger{ background:#fdecea; color:var(--danger); border-color:#f3c6c0; font-weight:600; }
+
+  /* Table */
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th, td{ padding:12px 10px; text-align:right; border-bottom:1px solid var(--line); }
+  th{ background:var(--paper); color:var(--ink-soft); font-weight:600; }
+  tr:hover{ background:#f8fafb; }
+  
+  .badge{
+    display:inline-block; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600;
+  }
+  .badge.add{ background:#e6f4ea; color:#1e7e34; }
+  .badge.edit{ background:#eaf3fc; color:#2c5f8a; }
+  .badge.delete{ background:#fdecea; color:#b3372c; }
+  .badge.cols{ background:#fbe9df; color:var(--accent); }
+  .badge.login{ background:#f0f0f0; color:#444; }
+
+  .time-stamp{ font-size:11.5px; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1>📜 سجل أنشطة النظام (Admin Activity Logs)</h1>
+  </div>
+  <div>
+    <a href="index.html" class="nav-btn">◀ العودة للفروع</a>
+  </div>
+</header>
+
+<container>
+
+  <div class="card-box">
+    <div class="card-header">
+      <h2>جميع التغييرات والأنشطة المسجلة في السحابة</h2>
+      <button class="btn danger" onclick="clearAllLogs()">🗑️ مسح جميع السجلات</button>
+    </div>
+
+    <div class="filter-row">
+      <input type="text" id="searchInput" placeholder="🔍 بحث باسم المستخدم أو التفاصيل..." oninput="filterLogs()">
+      <select id="branchFilter" onchange="filterLogs()">
+        <option value="all">جميع الفروع</option>
+        <option value="thawra">فرع الثورة</option>
+        <option value="hegaz">فرع الحجاز</option>
+        <option value="hurgada">فرع الغردقة</option>
+      </select>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>التاريخ والوقت</th>
+          <th>المستخدم</th>
+          <th>الفرع</th>
+          <th>نوع العملية</th>
+          <th>التفاصيل</th>
+        </tr>
+      </thead>
+      <tbody id="logsTableBody">
+        <tr><td colspan="5" style="text-align:center; padding:20px;">جاري تحميل سجل الأنشطة...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</container>
+
+<script>
+// --- SUPABASE CLIENT ---
+const SUPABASE_URL = "https://zipbobmaokofgdyrjubi.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppcGJvYm1hb2tvZmdkeXJqdWJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MDA5ODMsImV4cCI6MjEwMDQ3Njk4M30.7QergH1r3sSprj__zngkUV4-iwExhVNFRRKrqNCB9vU";
+
+let supabaseClient = null;
+function getClient() {
+  if (!supabaseClient && window.supabase) {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return supabaseClient;
+}
+
+// --- STRICT ADMIN SECURITY GUARD ---
+const userStr = localStorage.getItem('weh_logged_user');
+if (!userStr) { window.location.href = "login.html"; }
+const currentUser = JSON.parse(userStr);
+
+// Allow ONLY Admin users to view this page
+if (currentUser.role !== 'admin') {
+  alert("⚠️ هذه الصفحة مخصصة لمدير النظام فقط!");
+  window.location.href = "index.html";
+}
+
+let allLogs = [];
+
+async function loadLogs() {
+  const client = getClient();
+  if(!client) return;
+
+  try {
+    const { data, error } = await client
+      .from('logs')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    allLogs = data || [];
+    renderLogsTable(allLogs);
+  } catch (err) {
+    alert("خطأ أثناء جلب السجلات: " + err.message);
+  }
+}
+
+function renderLogsTable(logsList) {
+  const tbody = document.getElementById('logsTableBody');
+  tbody.innerHTML = '';
+
+  if (logsList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">لا توجد أنشطة مسجلة حالياً.</td></tr>';
+    return;
+  }
+
+  logsList.forEach(log => {
+    const tr = document.createElement('tr');
+    
+    let actionBadge = `<span class="badge login">${escapeHtml(log.action_type || '')}</span>`;
+    if(log.action_type === 'ADD_RESERVATION') actionBadge = '<span class="badge add">➕ إضافة موعد</span>';
+    if(log.action_type === 'EDIT_RESERVATION') actionBadge = '<span class="badge edit">✏️ تعديل موعد</span>';
+    if(log.action_type === 'DELETE_RESERVATION') actionBadge = '<span class="badge delete">🗑️ حذف موعد</span>';
+    if(log.action_type === 'MANAGE_COLUMNS') actionBadge = '<span class="badge cols">⚙️ تعديل أعمدة</span>';
+    if(log.action_type === 'LOGIN') actionBadge = '<span class="badge login">🔐 تسجيل دخول</span>';
+
+    let branchText = "-";
+    if(log.branch === 'thawra') branchText = "فرع الثورة";
+    if(log.branch === 'hegaz') branchText = "فرع الحجاز";
+    if(log.branch === 'hurgada' || log.branch === 'hurghada') branchText = "فرع الغردقة";
+
+    const dateStr = new Date(log.created_at).toLocaleString('ar-EG', {
+      dateStyle: 'medium', timeStyle: 'short'
+    });
+
+    tr.innerHTML = `
+      <td class="time-stamp">${dateStr}</td>
+      <td><b>${escapeHtml(log.user_name || 'مستخدم')}</b> <small>(${escapeHtml(log.user_role || '')})</small></td>
+      <td>${branchText}</td>
+      <td>${actionBadge}</td>
+      <td>${escapeHtml(log.description || '')}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterLogs() {
+  const query = document.getElementById('searchInput').value.toLowerCase().trim();
+  const selectedBranch = document.getElementById('branchFilter').value;
+
+  const filtered = allLogs.filter(log => {
+    const userName = (log.user_name || '').toLowerCase();
+    const desc = (log.description || '').toLowerCase();
+    const matchesSearch = userName.includes(query) || desc.includes(query);
+    
+    const branchKey = log.branch === 'hurghada' ? 'hurgada' : log.branch;
+    const matchesBranch = selectedBranch === 'all' || branchKey === selectedBranch;
+    
+    return matchesSearch && matchesBranch;
+  });
+
+  renderLogsTable(filtered);
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+async function clearAllLogs() {
+  if (!confirm("هل أنت ألكيد من مسح جميع سجلات العمليات؟")) return;
+
+  const client = getClient();
+  if(!client) return;
+
+  try {
+    const { error } = await client.from('logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (error) throw error;
+    alert("تم مسح جميع السجلات بنجاح!");
+    loadLogs();
+  } catch (err) {
+    alert("خطأ أثناء المسح: " + err.message);
+  }
+}
+
+loadLogs();
+</script>
+</body>
+</html>

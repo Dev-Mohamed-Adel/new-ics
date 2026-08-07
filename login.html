@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="./images/logo.png">
+<title>WEH - تسجيل الدخول</title>
+
+<!-- Supabase SDK with Fallback -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  if (!window.supabase) {
+    document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\/script>');
+  }
+</script>
+
+<style>
+  :root{
+    --ink:#1c2b33;
+    --ink-soft:#5a6b74;
+    --line:#dbe2e6;
+    --paper:#f4f7f8;
+    --card:#ffffff;
+    --brand:#0e5a63;
+    --brand-dark:#0a4048;
+    --danger:#b3372c;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:"Segoe UI", Tahoma, "Cairo", sans-serif;
+    background:linear-gradient(180deg, var(--brand-dark), var(--brand) 50%, var(--paper) 50%);
+    color:var(--ink);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:100%;
+    padding:20px;
+  }
+  .login-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:36px 28px;
+    width:100%;
+    max-width:400px;
+    box-shadow:0 12px 32px rgba(10,64,72,0.18);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .mark{
+    width:64px;height:64px;border-radius:16px;
+  
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:22px;color:#fff;letter-spacing:1px;
+    margin-bottom:12px;
+  }
+  h1{ font-size:20px; color:var(--ink); margin:0 0 4px; text-align:center; }
+  .sub{ font-size:13px; color:var(--ink-soft); margin-bottom:24px; text-align:center; }
+  form{ width:100%; }
+  .form-group{ margin-bottom:16px; }
+  label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink); margin-bottom:6px; }
+  input{
+    width:100%;
+    padding:11px 12px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    font-size:13.5px;
+    font-family:inherit;
+    outline:none;
+    transition:border-color 0.2s;
+  }
+  input:focus{ border-color:var(--brand); }
+  
+  /* Inline Error Alert Box */
+  .alert-error{
+    background:#fdecea;
+    color:var(--danger);
+    border:1px solid #f3c6c0;
+    padding:10px 14px;
+    border-radius:9px;
+    font-size:12.5px;
+    margin-bottom:16px;
+    width:100%;
+    display:none;
+    line-height:1.4;
+  }
+  .btn-submit{
+    width:100%;
+    padding:12px;
+    background:var(--brand);
+    color:#fff;
+    border:none;
+    border-radius:9px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background 0.2s;
+    margin-top:6px;
+  }
+  .btn-submit:hover{ background:var(--brand-dark); }
+  .btn-submit:disabled{ opacity:0.7; cursor:not-allowed; }
+  .demo-hint{
+    margin-top:20px;
+    padding:12px;
+    background:var(--paper);
+    border-radius:8px;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    width:100%;
+    line-height:1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="mark">
+    <img src="./images/logo.png" style="width: 200px;" alt="WEH Logo">
+  </div>
+  <h1>Watany Eye Hospital</h1>
+  <div class="sub">تسجيل الدخول للنظام الإداري</div>
+
+  <!-- Inline Error Banner -->
+  <div class="alert-error" id="errorMsg"></div>
+
+  <form id="loginForm">
+    <div class="form-group">
+      <label>اسم المستخدم</label>
+      <input type="text" id="username" placeholder="أدخل اسم المستخدم" required autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>كلمة السر</label>
+      <input type="password" id="password" placeholder="أدخل كلمة السر" required autocomplete="current-password">
+    </div>
+    <button type="submit" class="btn-submit" id="submitBtn">تسجيل الدخول ◀</button>
+  </form>
+
+</div>
+
+<script>
+// --- SUPABASE CLIENT SETUP ---
+const SUPABASE_URL = "https://zipbobmaokofgdyrjubi.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppcGJvYm1hb2tvZmdkeXJqdWJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MDA5ODMsImV4cCI6MjEwMDQ3Njk4M30.7QergH1r3sSprj__zngkUV4-iwExhVNFRRKrqNCB9vU";
+
+let dbClient = null;
+function getDb() {
+  if (!dbClient && window.supabase && typeof window.supabase.createClient === 'function') {
+    dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return dbClient;
+}
+
+function showError(msg) {
+  const errBox = document.getElementById('errorMsg');
+  errBox.textContent = msg;
+  errBox.style.display = 'block';
+}
+
+function hideError() {
+  const errBox = document.getElementById('errorMsg');
+  errBox.style.display = 'none';
+  errBox.textContent = '';
+}
+
+document.getElementById('loginForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const usernameInput = document.getElementById('username').value.trim();
+  const passwordInput = document.getElementById('password').value.trim();
+  const submitBtn = document.getElementById('submitBtn');
+
+  hideError();
+  submitBtn.textContent = "⏳ جاري التحقق...";
+  submitBtn.disabled = true;
+
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  const client = getDb();
+
+  if (!client) {
+    showError("⚠️ تعذر الاتصال بـ Supabase. يرجى التأكد من الاتصال بالإنترنت.");
+    submitBtn.textContent = "تسجيل الدخول ◀";
+    submitBtn.disabled = false;
+    return;
+  }
+
+  try {
+    // Query matching profile from Supabase
+    const { data, error } = await client
+      .from('profiles')
+      .select('*')
+      .eq('username', usernameInput)
+      .maybeSingle();
+
+    if (error) {
+      showError("❌ خطأ من قاعدة البيانات: " + error.message);
+      submitBtn.textContent = "تسجيل الدخول ◀";
+      submitBtn.disabled = false;
+      return;
+    }
+
+    if (!data) {
+      showError("⚠️ اسم المستخدم '" + usernameInput + "' غير موجود بالنظام!");
+      submitBtn.textContent = "تسجيل الدخول ◀";
+      submitBtn.disabled = false;
+      return;
+    }
+
+    if (data.password !== passwordInput) {
+      showError("⚠️ كلمة السر غير صحيحة للحساب '" + usernameInput + "'!");
+      submitBtn.textContent = "تسجيل الدخول ◀";
+      submitBtn.disabled = false;
+      return;
+    }
+
+    // Save user session & permissions
+    localStorage.setItem('weh_logged_user', JSON.stringify({
+      id: data.id,
+      name: data.full_name || data.username,
+      username: data.username,
+      role: data.role,
+      allowed_branches: data.allowed_branches || 'all'
+    }));
+
+    // Record login in activity logs
+    try {
+      await client.from('logs').insert([{
+        user_name: data.full_name || data.username,
+        user_role: data.role,
+        action_type: 'LOGIN',
+        description: `تسجيل دخول ناجح للحساب (${data.username})`,
+        branch: 'all'
+      }]);
+    } catch(logErr) {
+      console.warn("Log recording notice:", logErr);
+    }
+
+    // Redirect to main branch selector
+    window.location.href = "index.html";
+
+  } catch (err) {
+    showError("❌ حدث خطأ غير متوقع: " + err.message);
+    submitBtn.textContent = "تسجيل الدخول ◀";
+    submitBtn.disabled = false;
+  }
+});
+</script>
+
+</body>
+</html>

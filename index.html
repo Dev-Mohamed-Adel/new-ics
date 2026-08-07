@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WEH - اختر الفرع</title>
+
+<!-- Supabase SDK & Config -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+
+<style>
+  :root{
+    --ink:#1c2b33;
+    --ink-soft:#5a6b74;
+    --line:#dbe2e6;
+    --paper:#f4f7f8;
+    --card:#ffffff;
+    --brand:#0e5a63;
+    --brand-dark:#0a4048;
+    --accent:#c96a3e;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:"Segoe UI", Tahoma, "Cairo", sans-serif;
+    background:linear-gradient(180deg, var(--brand-dark), var(--brand) 55%, var(--paper) 55%);
+    color:var(--ink);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:100%;
+    padding:0 20px 60px;
+  }
+  .top-user-bar{
+    width:100%;
+    max-width:820px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding-top:16px;
+    color:#fff;
+    font-size:13px;
+  }
+  .role-tag{
+    background:rgba(255,255,255,0.2);
+    padding:2px 8px;
+    border-radius:4px;
+    font-size:11px;
+    margin-right:6px;
+  }
+  .top-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .btn-top{
+    color:#fff;
+    background:rgba(255,255,255,0.18);
+    border:1px solid rgba(255,255,255,0.3);
+    padding:6px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:12px;
+    text-decoration:none;
+    display:inline-flex; align-items:center;
+  }
+  .btn-top:hover{ background:rgba(255,255,255,0.3); }
+  .btn-top.users-btn{ background:var(--accent); border-color:var(--accent); font-weight:600; }
+  .btn-top.logs-btn{ background:#2c5f8a; border-color:#2c5f8a; font-weight:600; }
+  
+  .mark{
+    width:60px;height:60px;border-radius:16px;
+   
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:20px;color:#fff;letter-spacing:1px;
+    margin-top:20px;
+  }
+  h1{ color:#fff; font-size:22px; margin:18px 0 4px; text-align:center; }
+  .sub{ color:rgba(255,255,255,0.8); font-size:14px; margin-bottom:36px; text-align:center; }
+  
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+    gap:20px;
+    width:100%;
+    max-width:820px;
+  }
+  a.branch-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:28px 20px;
+    text-decoration:none;
+    color:var(--ink);
+    text-align:center;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    transition:transform .12s ease, box-shadow .12s ease;
+    box-shadow:0 1px 3px rgba(0,0,0,0.06);
+  }
+  a.branch-card:hover{
+    transform:translateY(-3px);
+    border-color:var(--brand);
+    box-shadow:0 10px 24px rgba(14,90,99,0.15);
+  }
+
+  .icon-circle{
+    width:56px;height:56px;
+    border-radius:50%;
+    background:#e3f0f0;
+    color:var(--brand);
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;
+    font-weight:700;
+  }
+  .branch-name-ar{ font-size:17px; font-weight:600; }
+  .branch-name-en{ font-size:12.5px; color:var(--ink-soft); }
+  .go{ margin-top:6px; font-size:12px; color:var(--brand); font-weight:600; }
+  footer{ color:rgba(255,255,255,0.7); font-size:12px; margin-top:36px; }
+</style>
+</head>
+<body>
+
+  <div class="top-user-bar">
+    <div>
+      مرحباً بك، <strong id="userName">المستخدم</strong>
+      <span class="role-tag" id="userRoleTag"></span>
+    </div>
+    <div class="top-actions">
+      <a href="users.html" id="manageUsersBtn" class="btn-top users-btn" style="display:none;">👥 إدارة المستخدمين</a>
+      <a href="logs.html" id="viewLogsBtn" class="btn-top logs-btn" style="display:none;">📜 سجل الأنشطة</a>
+      <button class="btn-top" onclick="logout()">تسجيل الخروج</button>
+    </div>
+  </div>
+
+  <div class="mark">
+    <img src="./images/logo1.png" style="width: 200px;" alt="WEH Logo">
+  </div>
+  <h1>Watany Eye Hospital</h1>
+  <div class="sub">اختر الفرع لعرض جدول العيادات والفحوصات</div>
+
+  <div class="grid">
+    <!-- 1. فرع الثورة -->
+    <a class="branch-card" href="thawra.html">
+      <div class="icon-circle">ث</div>
+      <div class="branch-name-ar">فرع الثورة</div>
+      <div class="branch-name-en">Al Thawra branch</div>
+      <div class="go">عرض الجدول ↗</div>
+    </a>
+
+    <!-- 2. فرع الحجاز -->
+    <a class="branch-card" href="hegaz.html">
+      <div class="icon-circle">ح</div>
+      <div class="branch-name-ar">فرع الحجاز</div>
+      <div class="branch-name-en">Al Hegaz branch</div>
+      <div class="go">عرض الجدول ↗</div>
+    </a>
+
+    <!-- 3. فرع الغردقة -->
+    <a class="branch-card" href="hurghada.html">
+      <div class="icon-circle">غ</div>
+      <div class="branch-name-ar">فرع الغردقة</div>
+      <div class="branch-name-en">Hurghada branch</div>
+      <div class="go">عرض الجدول ↗</div>
+    </a>
+  </div>
+
+  <footer>الحجوزات متزامنة مباشرة عبر قاعدة البيانات السحابية (Supabase)</footer>
+
+<script>
+const userStr = localStorage.getItem('weh_logged_user');
+
+if(!userStr){
+  window.location.href = "login.html";
+} else {
+  const user = JSON.parse(userStr);
+  document.getElementById('userName').textContent = user.name || user.username;
+  
+  const isAdmin = user.role === 'admin' || user.username === 'admin';
+  
+  document.getElementById('userRoleTag').textContent = isAdmin ? 'مدير النظام' : (user.role === 'editor' ? 'محرر مواعيد' : 'عرض فقط');
+  
+  if (isAdmin) {
+    document.getElementById('manageUsersBtn').style.display = 'inline-flex';
+    document.getElementById('viewLogsBtn').style.display = 'inline-flex';
+  }
+}
+
+function logout(){
+  localStorage.removeItem('weh_logged_user');
+  window.location.href = "login.html";
+}
+</script>
+</body>
+</html>

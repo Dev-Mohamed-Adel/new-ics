@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WEH - إدارة المستخدمين والصلاحيات</title>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  if (!window.supabase) {
+    document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\/script>');
+  }
+</script>
+
+<style>
+  :root{
+    --ink:#1c2b33;
+    --ink-soft:#5a6b74;
+    --line:#dbe2e6;
+    --paper:#f4f7f8;
+    --card:#ffffff;
+    --brand:#0e5a63;
+    --brand-dark:#0a4048;
+    --accent:#c96a3e;
+    --danger:#b3372c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Segoe UI", Tahoma, "Cairo", sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  header.top{
+    background:linear-gradient(180deg, var(--brand-dark), var(--brand));
+    color:#fff;
+    padding:16px 24px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  header.top h1{ font-size:18px; margin:0; font-weight:600; }
+  .nav-btn{
+    color:#fff; text-decoration:none; font-size:12.5px;
+    background:rgba(255,255,255,0.15); padding:6px 14px;
+    border-radius:6px; transition:background 0.2s;
+  }
+  .nav-btn:hover{ background:rgba(255,255,255,0.3); }
+
+  container{
+    display:block;
+    max-width:1000px;
+    margin:24px auto;
+    padding:0 16px;
+  }
+
+  .card-box{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:20px;
+    margin-bottom:24px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.03);
+  }
+  .card-box h2{ font-size:16px; margin:0 0 16px; color:var(--brand); }
+
+  .form-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+    gap:12px;
+  }
+  label{ display:block; font-size:12px; font-weight:600; margin-bottom:4px; color:var(--ink-soft); }
+  input, select{
+    width:100%; padding:9px 10px; border:1px solid var(--line);
+    border-radius:7px; font-size:13px; font-family:inherit; outline:none;
+  }
+  input:focus, select:focus{ border-color:var(--brand); }
+
+  .btn{
+    padding:9px 16px; border-radius:8px; border:1px solid var(--line);
+    background:#fff; cursor:pointer; font-size:13px; font-family:inherit;
+  }
+  .btn.primary{ background:var(--brand); color:#fff; border-color:var(--brand); font-weight:600; }
+  .btn.primary:hover{ background:var(--brand-dark); }
+  .btn.danger{ background:#fdecea; color:var(--danger); border-color:#f3c6c0; }
+
+  /* Users Table */
+  table{
+    width:100%; border-collapse:collapse; margin-top:8px; font-size:13px;
+  }
+  th, td{
+    padding:12px 10px; text-align:right; border-bottom:1px solid var(--line);
+  }
+  th{ background:var(--paper); color:var(--ink-soft); font-weight:600; }
+  tr:hover{ background:#f8fafb; }
+  .badge{
+    display:inline-block; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600;
+  }
+  .badge.admin{ background:#e3f0f0; color:var(--brand); }
+  .badge.editor{ background:#eaf3fc; color:#2c5f8a; }
+  .badge.viewer{ background:#fbe9df; color:var(--accent); }
+
+  .alert-box{
+    padding:10px 14px; border-radius:8px; font-size:12.5px; margin-bottom:14px; display:none;
+  }
+  .alert-box.error{ background:#fdecea; color:var(--danger); border:1px solid #f3c6c0; }
+  .alert-box.success{ background:#e6f4ea; color:#1e7e34; border:1px solid #b7e1cd; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1>👥 لوحة إدارة المستخدمين والصلاحيات</h1>
+  </div>
+  <div>
+    <a href="index.html" class="nav-btn">◀ العودة للفروع</a>
+  </div>
+</header>
+
+<container>
+
+  <div class="alert-box" id="alertBox"></div>
+
+  <!-- Form: Add / Edit User -->
+  <div class="card-box">
+    <h2 id="formTitle">➕ إضافة مستخدم جديد</h2>
+    <form id="userForm">
+      <input type="hidden" id="editingUserId">
+      <div class="form-grid">
+        <div>
+          <label>اسم المستخدم (Login Username)</label>
+          <input type="text" id="uUsername" placeholder="مثال: dr_ahmed" required>
+        </div>
+        <div>
+          <label>الاسم الكامل (Display Name)</label>
+          <input type="text" id="uFullName" placeholder="مثال: د. أحمد علي" required>
+        </div>
+        <div>
+          <label>كلمة السر</label>
+          <input type="text" id="uPassword" placeholder="أدخل كلمة السر" required>
+        </div>
+        <div>
+          <label>الصلاحيات والمستوى</label>
+          <select id="uRole">
+            <option value="admin">🔑 مدير نظام (كامل الصلاحيات)</option>
+            <option value="editor">✏️ محرر مواعيد (إضافة وتعديل)</option>
+            <option value="viewer">👁️ عرض فقط (Read-Only)</option>
+          </select>
+        </div>
+        <div>
+          <label>الفروع المسموح بها</label>
+          <select id="uBranch">
+            <option value="all">🏢 جميع الفروع</option>
+            <option value="thawra">فرع الثورة فقط</option>
+            <option value="hegaz">فرع الحجاز فقط</option>
+            <option value="hurgada">فرع الغردقة فقط</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:16px; display:flex; gap:8px;">
+        <button type="submit" class="btn primary" id="saveUserBtn">حفظ المستخدم</button>
+        <button type="button" class="btn" id="cancelEditBtn" style="display:none;" onclick="resetForm()">إلغاء التعديل</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Users List Table -->
+  <div class="card-box">
+    <h2>قائمة المستخدمين المسجلين في النظام</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>اسم المستخدم</th>
+          <th>الاسم الكامل</th>
+          <th>كلمة السر</th>
+          <th>الصلاحية</th>
+          <th>الفروع المسموحة</th>
+          <th>الإجراءات</th>
+        </tr>
+      </thead>
+      <tbody id="usersTableBody">
+        <tr><td colspan="6" style="text-align:center; padding:20px;">جاري تحميل قائمة المستخدمين...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</container>
+
+<script>
+// --- SUPABASE CLIENT ---
+const SUPABASE_URL = "https://zipbobmaokofgdyrjubi.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppcGJvYm1hb2tvZmdkeXJqdWJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MDA5ODMsImV4cCI6MjEwMDQ3Njk4M30.7QergH1r3sSprj__zngkUV4-iwExhVNFRRKrqNCB9vU";
+
+let supabaseClient = null;
+function getClient() {
+  if (!supabaseClient && window.supabase) {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return supabaseClient;
+}
+
+// --- ADMIN SECURITY GUARD ---
+const userStr = localStorage.getItem('weh_logged_user');
+if (!userStr) { window.location.href = "login.html"; }
+const currentUser = JSON.parse(userStr);
+
+// Allow only Admin users to view this page
+if (currentUser.role !== 'admin') {
+  alert("⚠️ هذه الصفحة مخصصة لمدير النظام فقط!");
+  window.location.href = "index.html";
+}
+
+function showAlert(msg, type = 'error') {
+  const box = document.getElementById('alertBox');
+  box.className = 'alert-box ' + type;
+  box.textContent = msg;
+  box.style.display = 'block';
+  setTimeout(() => { box.style.display = 'none'; }, 4000);
+}
+
+let loadedUsers = [];
+
+// Fetch Users List
+async function loadUsers() {
+  const client = getClient();
+  if(!client) return;
+
+  try {
+    const { data, error } = await client
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    loadedUsers = data || [];
+    renderUsersTable();
+  } catch (err) {
+    showAlert("خطأ في جلب المستخدمين: " + err.message);
+  }
+}
+
+function renderUsersTable() {
+  const tbody = document.getElementById('usersTableBody');
+  tbody.innerHTML = '';
+
+  if (loadedUsers.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">لا يوجد مستخدمون مسجلون.</td></tr>';
+    return;
+  }
+
+  loadedUsers.forEach((user, index) => {
+    const tr = document.createElement('tr');
+    
+    let roleBadge = '<span class="badge viewer">عرض فقط</span>';
+    if(user.role === 'admin') roleBadge = '<span class="badge admin">🔑 مدير نظام</span>';
+    if(user.role === 'editor') roleBadge = '<span class="badge editor">✏️ محرر مواعيد</span>';
+
+    let branchText = "جميع الفروع";
+    if(user.allowed_branches === 'thawra') branchText = "فرع الثورة فقط";
+    if(user.allowed_branches === 'hegaz') branchText = "فرع الحجاز فقط";
+    if(user.allowed_branches === 'hurgada') branchText = "فرع الغردقة فقط";
+
+    tr.innerHTML = `
+      <td><b>${escapeHtml(user.username)}</b></td>
+      <td>${escapeHtml(user.full_name || '')}</td>
+      <td><code>${escapeHtml(user.password || '')}</code></td>
+      <td>${roleBadge}</td>
+      <td>${branchText}</td>
+      <td>
+        <button class="btn icon-btn" onclick="editUser(${index})">✏️ تعديل</button>
+        <button class="btn danger icon-btn" onclick="deleteUser('${user.id}', '${user.username}')">🗑️ حذف</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// Add or Update User
+document.getElementById('userForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const userId = document.getElementById('editingUserId').value;
+  const username = document.getElementById('uUsername').value.trim();
+  const fullName = document.getElementById('uFullName').value.trim();
+  const password = document.getElementById('uPassword').value.trim();
+  const role = document.getElementById('uRole').value;
+  const branch = document.getElementById('uBranch').value;
+
+  const client = getClient();
+  if(!client) return;
+
+  try {
+    if (userId) {
+      // Update existing user
+      const { error } = await client
+        .from('profiles')
+        .update({
+          username: username,
+          full_name: fullName,
+          password: password,
+          role: role,
+          allowed_branches: branch
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+      showAlert("تم تعديل المستخدم بنجاح!", "success");
+    } else {
+      // Create new user
+      const { error } = await client
+        .from('profiles')
+        .insert([{
+          username: username,
+          full_name: fullName,
+          password: password,
+          role: role,
+          allowed_branches: branch
+        }]);
+
+      if (error) throw error;
+      showAlert("تم إنشاء المستخدم الجديد بنجاح!", "success");
+    }
+
+    resetForm();
+    loadUsers();
+  } catch (err) {
+    showAlert("❌ خطأ: " + err.message);
+  }
+});
+
+function editUser(index) {
+  const user = loadedUsers[index];
+  document.getElementById('editingUserId').value = user.id;
+  document.getElementById('uUsername').value = user.username;
+  document.getElementById('uFullName').value = user.full_name;
+  document.getElementById('uPassword').value = user.password;
+  document.getElementById('uRole').value = user.role || 'viewer';
+  document.getElementById('uBranch').value = user.allowed_branches || 'all';
+
+  document.getElementById('formTitle').textContent = "✏️ تعديل بيانات المستخدم: " + user.username;
+  document.getElementById('cancelEditBtn').style.display = 'inline-block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetForm() {
+  document.getElementById('editingUserId').value = '';
+  document.getElementById('userForm').reset();
+  document.getElementById('formTitle').textContent = "➕ إضافة مستخدم جديد";
+  document.getElementById('cancelEditBtn').style.display = 'none';
+}
+
+async function deleteUser(id, username) {
+  if (username === currentUser.username) {
+    showAlert("لا يمكنك حذف حسابك الذي تسجل به الدخول حالياً!");
+    return;
+  }
+
+  if (!confirm(`هل أنت ألكيد من حذف حساب المستخدم "${username}"؟`)) return;
+
+  const client = getClient();
+  if (!client) return;
+
+  try {
+    const { error } = await client.from('profiles').delete().eq('id', id);
+    if (error) throw error;
+
+    showAlert("تم حذف المستخدم بنجاح!", "success");
+    loadUsers();
+  } catch (err) {
+    showAlert("خطأ أثناء الحذف: " + err.message);
+  }
+}
+
+loadUsers();
+</script>
+</body>
+</html>
